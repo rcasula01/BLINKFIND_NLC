@@ -5,7 +5,16 @@ import os
 from werkzeug.utils import secure_filename
 from datetime import datetime
 import uuid
-
+# Provide a fallback for pkgutil.get_loader which was removed in some Python versions.
+# Flask (and underlying Werkzeug) may call pkgutil.get_loader during app initialization.
+if not hasattr(pkgutil, 'get_loader'):
+    def _get_loader(name):
+        try:
+            spec = importlib.util.find_spec(name)
+            return spec.loader if spec else None
+        except Exception:
+            return None
+    pkgutil.get_loader = _get_loader
 
 
 
