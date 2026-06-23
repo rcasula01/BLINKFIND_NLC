@@ -1,3 +1,16 @@
+// Auth guard: verify session with backend before rendering admin page
+(async function checkAdminAuth() {
+  const API_BASE = window.API_BASE || (location.protocol + '//' + location.hostname + ':4000');
+  try {
+    const res = await fetch(`${API_BASE}/auth/session`, { credentials: 'include' });
+    if (!res.ok) {
+      window.location.replace('./index.html');
+    }
+  } catch (e) {
+    console.error('Auth check failed:', e);
+    window.location.replace('./index.html');
+  }
+})();
 
 
 //run code after page loads

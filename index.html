@@ -19,7 +19,6 @@
 
 
 
-
 <!-- Login Section -->
 <div class="login-container">
   <div class="login-box">
@@ -31,16 +30,16 @@
 
     <!-- Error Message (hidden until login fails via JS) -->
     <div class="login-error" id="loginError">
-      <i class="fas fa-exclamation-circle"></i> Invalid username or password.
+      <i class="fas fa-exclamation-circle"></i> Invalid email or password.
     </div>
 
     <!-- Login Form -->
     <form id="loginForm">
 
-      <!-- Username Field -->
+      <!-- Email Field -->
       <div class="form-group">
-        <label>Username</label>
-        <input type="text" id="username" autocomplete="username" required>
+        <label>Email</label>
+        <input type="email" id="email" autocomplete="email" required>
       </div>
 
       <!-- Password Field -->
@@ -65,9 +64,6 @@
 
     </form>
 
-    <!-- Default Credentials : admin  / school123 -->
-    <p class="hint">Guest Credentials: <b>guest / guest</b></p> 
-
   </div>
 </div>
 
@@ -84,6 +80,5 @@
  </body>
 
 </html>
-
 
 

@@ -281,6 +281,31 @@ document.querySelectorAll('a[href^="#"]').forEach(a => {
     }
   });
 });
+// ── AUTH GUARD + LOGOUT ───────────────────────
+(async function() {
+  const API_BASE = window.API_BASE || (location.protocol + '//' + location.hostname + ':4000');
+  try {
+    const res = await fetch(`${API_BASE}/auth/session`, { credentials: 'include' });
+    if (!res.ok) {
+      window.location.replace('./index.html');
+      return;
+    }
+  } catch (e) {
+    window.location.replace('./index.html');
+    return;
+  }
+
+  // Wire up logout link
+  document.querySelectorAll('a[href="index.html"], a[href="./index.html"]').forEach(el => {
+    el.addEventListener('click', async function(e) {
+      e.preventDefault();
+      try {
+        await fetch(`${API_BASE}/auth/logout`, { method: 'POST', credentials: 'include' });
+      } catch (_) {}
+      window.location.href = './index.html';
+    });
+  });
+})();
 </script>
 </body>
 </html>

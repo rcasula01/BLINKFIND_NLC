@@ -1,0 +1,29 @@
+# Environment variables – never commit secrets
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+venv/
+.venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# Database (local dev only)
+data.sqlite
+
+# Uploaded files
+uploads/
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
