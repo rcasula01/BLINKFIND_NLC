@@ -1,10 +1,13 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, session
 from flask_cors import CORS
 import sqlite3
 import os
 from werkzeug.utils import secure_filename
 from datetime import datetime
 import uuid
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 
@@ -17,6 +20,10 @@ UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
 
+SUPABASE_URL = os.environ.get('SUPABASE_URL', '')
+SUPABASE_ANON_KEY = os.environ.get('SUPABASE_ANON_KEY', '')
+SESSION_SECRET = os.environ.get('SESSION_SECRET', 'change-me-in-production')
+
 
 
 
@@ -28,9 +35,37 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 # ====== APP SETUP ======
 # Use explicit import name to avoid pkgutil/get_loader issues with some Python versions
 app = Flask('server', static_folder=None)
-CORS(app)
+app.secret_key = SESSION_SECRET
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+# Set SESSION_COOKIE_SECURE = True in production (HTTPS only)
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
+
+CORS(app,
+     supports_credentials=True,
+     origins=[
+         'http://localhost:8000',
+         'http://127.0.0.1:8000',
+         'http://localhost:4000',
+         'http://127.0.0.1:4000',
+     ])
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE
+
+
+# ====== SUPABASE CLIENT ======
+_supabase_client = None
+
+def get_supabase():
+    global _supabase_client
+    if _supabase_client is None:
+        if not SUPABASE_URL or not SUPABASE_ANON_KEY:
+            raise RuntimeError(
+                'SUPABASE_URL and SUPABASE_ANON_KEY must be set in environment variables.'
+            )
+        from supabase import create_client
+        _supabase_client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+    return _supabase_client
 
 
 
@@ -383,6 +418,62 @@ def upload_file():
    # Generate public URL for the uploaded file
    public_url = f"/uploads/{timestamped}"  # Relative to host
    return jsonify({'publicUrl': public_url}), 201
+
+
+# ====== AUTH ROUTES ======
+
+
+@app.route('/auth/login', methods=['POST'])
+def auth_login():
+    data = request.get_json() or {}
+    email = (data.get('email') or '').strip()
+    password = data.get('password') or ''
+    if not email or not password:
+        return jsonify({'error': 'Email and password are required.'}), 400
+    try:
+        sb = get_supabase()
+        response = sb.auth.sign_in_with_password({'email': email, 'password': password})
+        session['access_token'] = response.session.access_token
+        session['user_email'] = response.user.email
+        return jsonify({'success': True, 'user': {'email': response.user.email}})
+    except RuntimeError as e:
+        app.logger.error(f'Supabase configuration error: {e}')
+        return jsonify({'error': 'Server configuration error. Contact the administrator.'}), 500
+    except Exception as e:
+        app.logger.warning(f'Login failed for {email}: {e}')
+        return jsonify({'error': 'Invalid email or password.'}), 401
+
+
+@app.route('/auth/logout', methods=['POST'])
+def auth_logout():
+    token = session.get('access_token')
+    if token:
+        try:
+            sb = get_supabase()
+            sb.auth.sign_out()
+        except Exception as e:
+            app.logger.warning(f'Supabase sign-out error (ignored): {e}')
+    session.clear()
+    return jsonify({'success': True})
+
+
+@app.route('/auth/session', methods=['GET'])
+def auth_session():
+    token = session.get('access_token')
+    if not token:
+        return jsonify({'authenticated': False}), 401
+    try:
+        sb = get_supabase()
+        user_response = sb.auth.get_user(token)
+        return jsonify({
+            'authenticated': True,
+            'user': {'email': user_response.user.email}
+        })
+    except Exception as e:
+        app.logger.warning(f'Session validation failed: {e}')
+        session.clear()
+        return jsonify({'authenticated': False}), 401
+
 
 # ====== START ======
 if __name__ == '__main__':
